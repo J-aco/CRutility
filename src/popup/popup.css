@@ -1,0 +1,46 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Fred and contributors. Upstream portions retain their owners' rights.
+ * Modified work; compliance changes dated 2026-11-14. See ../../docs/THIRD_PARTY_NOTICES.md.
+ * Distributed without warranty; see ../../LICENSE for the full terms.
+ */
+body {
+  margin: 0;
+  min-width: 240px;
+  padding: 12px 14px 14px;
+  color: #f8f8f8;
+  background: #1a1919;
+  font: 14px/1.4 "Segoe UI", sans-serif;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+footer {
+  margin-top: 14px;
+  border-top: 1px solid #ddd;
+  color: #8a8a8a;
+  font-size: 12px;
+}
+
+footer a {
+  color: #458af1;
+}
+
+summary {
+  cursor: pointer;
+}

@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Fred and contributors. Upstream portions retain their owners' rights.
+ * Modified work; compliance changes dated 2026-11-14. See ../../docs/THIRD_PARTY_NOTICES.md.
+ * Distributed without warranty; see ../../LICENSE for the full terms.
+ */
 const LAST_PROFILE_KEY = "lastProfile";
 const SCAN_MS = 500;
 
@@ -525,6 +531,8 @@ function renderMal(record) {
   }
   link.href = `https://myanimelist.net/anime/${record.malId}`;
   link.textContent = malText(record.score);
+  link.title = "MyAnimeList score via Tenrai (unofficial; cached). Open the MyAnimeList entry to verify.";
+  link.setAttribute("aria-label", `${link.textContent}. MyAnimeList score via Tenrai. Open MyAnimeList.`);
   placePageTools(pageKind(location, document));
 }
 

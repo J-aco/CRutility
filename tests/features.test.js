@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Fred and contributors. See ../LICENSE and ../docs/THIRD_PARTY_NOTICES.md.
+ * License notice added 2026-11-14. Distributed without warranty.
+ */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -5,8 +10,8 @@ import vm from "node:vm";
 
 const sandbox = {};
 sandbox.globalThis = sandbox;
-vm.runInNewContext(readFileSync(new URL("./features.js", import.meta.url), "utf8"), sandbox);
-const { classifySkip, pickMalHit, skipControlOffered, reduceFill } = sandbox.crunchyrollTools;
+vm.runInNewContext(readFileSync(new URL("../src/shared/features.js", import.meta.url), "utf8"), sandbox);
+const { classifySkip, pickMalHit, skipControlOffered, reduceFill } = sandbox.crUtility;
 
 test("intro", () => {
   assert.equal(classifySkip("Skip Intro", 0.12, true), "intro");

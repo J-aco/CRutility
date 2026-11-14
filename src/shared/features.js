@@ -1,3 +1,9 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Fred and contributors. Upstream portions retain their owners' rights.
+ * Modified work; compliance changes dated 2026-11-14. See ../../docs/THIRD_PARTY_NOTICES.md.
+ * Distributed without warranty; see ../../LICENSE for the full terms.
+ */
 const FEATURES = [
   { id: "profile", label: "Remember the last profile" },
   { id: "promos", label: "Skip promos" },
@@ -193,7 +199,7 @@ function reduceFill(model, event) {
   };
 }
 
-globalThis.crunchyrollTools = {
+globalThis.crUtility = {
   FEATURES,
   settingsFromStored,
   skipControlOffered,

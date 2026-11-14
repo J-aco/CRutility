@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Crunchyroll tools",
+  "name": "CRutility (Unofficial)",
   "version": "1.0.0",
-  "description": "Remember your Crunchyroll profile, skip player prompts, and show a MyAnimeList score.",
+  "description": "Unofficial, independent extension: remember your Crunchyroll profile, skip player prompts, and show MyAnimeList scores via Tenrai.",
+  "icons": {
+    "16": "assets/icons/Icon 16x16.png",
+    "32": "assets/icons/Icon 32x32.png",
+    "48": "assets/icons/Icon 48x48.png",
+    "128": "assets/icons/Icon 128x128.png"
+  },
   "permissions": ["storage"],
   "host_permissions": [
     "https://www.crunchyroll.com/*",
@@ -10,16 +16,22 @@
     "https://api.tenrai.org/*"
   ],
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "Crunchyroll tools"
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/Icon 16x16.png",
+      "32": "assets/icons/Icon 32x32.png",
+      "48": "assets/icons/Icon 48x48.png",
+      "128": "assets/icons/Icon 128x128.png"
+    },
+    "default_title": "CRutility (Unofficial)"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background/background.js"
   },
   "content_scripts": [
     {
       "matches": ["https://www.crunchyroll.com/*", "https://crunchyroll.com/*"],
-      "js": ["features.js", "content.js"],
+      "js": ["src/shared/features.js", "src/content/content.js"],
       "run_at": "document_idle"
     }
   ]
