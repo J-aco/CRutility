@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CRutility",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Remembers your Crunchyroll profile to auto login, auto-skip and show MyAnimeList Ratings.",
   "icons": {
     "16": "assets/icons/Icon 16x16.png",

@@ -12,12 +12,19 @@ const settings = settingsFromStored(stored);
 
 for (const feature of FEATURES) {
   const label = document.createElement("label");
+  label.className = "feature";
+  const text = document.createElement("span");
+  text.textContent = feature.label;
   const input = document.createElement("input");
   input.type = "checkbox";
+  input.className = "feature-toggle";
+  input.setAttribute("role", "switch");
+  input.id = feature.id;
+  input.name = feature.id;
   input.checked = settings[feature.id];
   input.addEventListener("change", () => {
     chrome.storage.local.set({ [feature.id]: input.checked });
   });
-  label.append(input, document.createTextNode(feature.label));
+  label.append(text, input);
   form.append(label);
 }

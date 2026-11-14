@@ -11,7 +11,7 @@ const FEATURES = [
   { id: "outros", label: "Skip outros" },
   { id: "recaps", label: "Skip recaps" },
   { id: "mal", label: "Show the MyAnimeList score" },
-  { id: "fill", label: "Fill the watch page player" },
+  { id: "fill", label: "Expand video to fit window" },
 ];
 
 const SKIP_RULES = [
