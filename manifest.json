@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Crunchyroll tools",
+  "version": "1.0.0",
+  "description": "Remember your Crunchyroll profile, skip player prompts, and show a MyAnimeList score.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.crunchyroll.com/*",
+    "https://crunchyroll.com/*",
+    "https://api.tenrai.org/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Crunchyroll tools"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.crunchyroll.com/*", "https://crunchyroll.com/*"],
+      "js": ["features.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
