@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "CRutility (Unofficial)",
-  "version": "1.0.0",
+  "name": "CRutility",
+  "version": "0.2.0",
   "description": "Unofficial, independent extension: remember your Crunchyroll profile, skip player prompts, and show MyAnimeList scores via Tenrai.",
   "icons": {
     "16": "assets/icons/Icon 16x16.png",
