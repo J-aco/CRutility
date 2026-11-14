@@ -199,6 +199,16 @@ function reduceFill(model, event) {
   };
 }
 
+function malPageKind(value) {
+  try {
+    const url = new URL(typeof value === "string" ? value : value.href);
+    if (url.protocol !== "https:" || !["crunchyroll.com", "www.crunchyroll.com"].includes(url.hostname)) return "other";
+    return url.pathname.match(/^\/(series|watch)\/[^/]+(?:\/|$)/)?.[1] || "other";
+  } catch {
+    return "other";
+  }
+}
+
 globalThis.crUtility = {
   FEATURES,
   settingsFromStored,
@@ -207,4 +217,5 @@ globalThis.crUtility = {
   featureIdForKind,
   pickMalHit,
   reduceFill,
+  malPageKind,
 };

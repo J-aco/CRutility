@@ -35,6 +35,13 @@ async function init() {
   ]);
   settings = settingsFromStored(stored);
   remembered = normalizeProfile(stored[LAST_PROFILE_KEY]);
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== "mal-page-change" || message.pageUrl !== location.href) return;
+    clearMal();
+    seriesState = { href: "", status: "" };
+    const kind = pageKind(location, document);
+    if (kind === "series" || kind === "watch") passSeries(kind);
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const feature of FEATURES) {
@@ -62,6 +69,11 @@ async function init() {
 
 function tick() {
   const kind = pageKind(location, document);
+  if (seriesState.href && seriesState.href !== location.href) {
+    clearMal();
+    seriesState = { href: "", status: "" };
+  }
+  if (kind === "series" || kind === "watch") passSeries(kind);
   syncFill(kind);
   try {
     if (settings.profile && kind !== "profile-gate") rememberHeaderAvatar();
@@ -73,11 +85,6 @@ function tick() {
       clearMal();
       return;
     }
-    if (seriesState.href && seriesState.href !== location.href) {
-      clearMal();
-      seriesState = { href: "", status: "" };
-    }
-    passSeries(kind);
     if (kind === "watch") scanSkip();
   } finally {
     placePageTools(kind);
@@ -99,10 +106,7 @@ function revealPlayer() {
 function pageKind(url, doc) {
   const gate = [...doc.querySelectorAll(".erc-profile-item")].some(visible);
   if (gate) return "profile-gate";
-  const path = url.pathname || "";
-  if (path.includes("/watch/")) return "watch";
-  if (path.includes("/series/")) return "series";
-  return "other";
+  return malPageKind(url);
 }
 
 let promoClickedHref = "";
@@ -221,71 +225,70 @@ function rememberHeaderAvatar() {
 }
 
 async function passSeries(kind) {
-  if (!settings.mal) return;
-  if (document.querySelector("a[data-cr-mal]")) return;
-  if (seriesState.href === location.href && seriesState.status === "pending") return;
-  if (seriesState.href === location.href && seriesState.status === "miss" && Date.now() < seriesState.retryAt) return;
+  if (!settings.mal || !["series", "watch"].includes(kind) || pageKind(location, document) !== kind) return;
   const title = showTitle(kind);
   if (!title) return;
-  seriesState = { href: location.href, status: "pending" };
+  if (seriesState.href !== location.href || seriesState.title !== title) {
+    clearMal();
+    seriesState = { href: location.href, title, status: "" };
+  }
+  if (document.querySelector("a[data-cr-mal]")) return;
+  if (seriesState.status === "pending" && Date.now() - seriesState.startedAt < 20000) return;
+  if (seriesState.href === location.href && seriesState.status === "miss" && Date.now() < seriesState.retryAt) return;
+  const requestState = { href: location.href, title, status: "pending", startedAt: Date.now() };
+  seriesState = requestState;
   let record = null;
   try {
-    record = await chrome.runtime.sendMessage({ type: "mal-lookup", title });
+    record = await chrome.runtime.sendMessage({ type: "mal-lookup", title, pageUrl: requestState.href });
   } catch {
-    seriesState = { href: location.href, status: "miss", retryAt: Date.now() + 20000 };
+    if (seriesState === requestState && location.href === requestState.href) {
+      seriesState = { href: requestState.href, title, status: "miss", retryAt: Date.now() + 20000 };
+    }
     return;
   }
-  if (seriesState.href !== location.href) return;
+  if (seriesState !== requestState || location.href !== requestState.href
+    || !settings.mal || pageKind(location, document) !== kind) return;
+  if (record?.retry) {
+    seriesState = { href: requestState.href, title, status: "" };
+    return;
+  }
   if (!record || record.malId == null) {
-    seriesState = { href: location.href, status: "miss", retryAt: Date.now() + 20000 };
+    seriesState = { href: location.href, title, status: "miss", retryAt: Date.now() + 20000 };
     return;
   }
-  seriesState = { href: location.href, status: "ok" };
+  seriesState = { href: location.href, title, status: "ok" };
   renderMal(record);
 }
 
 function showTitle(kind) {
-  const ordered = kind === "watch"
-    ? [seriesLinkTitle(), metaTitle(), document.title, headingText()]
-    : [headingText(), metaTitle(), document.title, seriesLinkTitle()];
-  for (const value of ordered) {
-    const cleaned = cleanShowTitle(value);
-    if (cleaned) return cleaned;
+  if (kind === "series") return seriesTitleFromUrl(location.href);
+  if (kind !== "watch") return "";
+  const media = document.querySelector("#content .erc-watch-episode .current-media-wrapper");
+  if (!media) return "";
+  for (const link of media.querySelectorAll('a[href*="/series/"]')) {
+    const title = seriesTitleFromUrl(link.href);
+    if (title) return title;
   }
   return "";
 }
 
-function seriesLinkTitle() {
-  const root = document.querySelector("main") || document.body;
-  for (const link of root.querySelectorAll('a[href*="/series/"]')) {
-    const text = link.textContent.replace(/\s+/g, " ").trim();
-    if (text.length < 3 || text.length > 140) continue;
-    if (/^(series|home|watch)$/i.test(text)) continue;
-    return text;
+function seriesTitleFromUrl(value) {
+  try {
+    const url = new URL(value, location.href);
+    if (malPageKind(url) !== "series") return "";
+    const slug = url.pathname.match(/^\/series\/[^/]+\/([^/]+)\/?$/)?.[1];
+    if (!slug) return "";
+    const decoded = decodeURIComponent(slug);
+    if (/[\/#?]/.test(decoded)) return "";
+    return cleanShowTitle(decoded.replace(/[-_]+/g, " "));
+  } catch {
+    return "";
   }
-  return "";
-}
-
-function metaTitle() {
-  return document.querySelector('meta[property="og:title"]')?.content || "";
-}
-
-function headingText() {
-  for (const heading of document.querySelectorAll("h1")) {
-    const text = heading.textContent.replace(/\s+/g, " ").trim();
-    if (text) return text;
-  }
-  return "";
 }
 
 function cleanShowTitle(value) {
-  if (typeof value !== "string") return "";
-  const title = value
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\s*[-|–—]\s*(watch on crunchyroll|crunchyroll)\b.*$/i, "")
-    .replace(/\s*\|\s*crunchyroll$/i, "")
-    .trim();
+  if (typeof value !== "string" || /watch\s+popular\s+anime/i.test(value)) return "";
+  const title = value.replace(/\s+/g, " ").trim();
   if (title.length < 2) return "";
   if (/^(crunchyroll|home|watch|series|loading)$/i.test(title)) return "";
   return title;
@@ -483,37 +486,38 @@ function placePageTools(kind) {
   if (button) (row || toolHolder()).append(button);
   if (!link) return;
   if (row) {
-    paintMal(link, false);
+    paintMal(link);
     row.append(link);
     return;
   }
   if (kind === "series") {
-    paintMal(link, true);
-    document.documentElement.append(link);
+    paintMal(link);
+    const ratings = document.querySelector("div.erc-ratings");
+    if (ratings) {
+      if (ratings.nextElementSibling !== link) ratings.insertAdjacentElement("afterend", link);
+    } else {
+      toolHolder().append(link);
+    }
     return;
   }
-  paintMal(link, false);
+  paintMal(link);
   toolHolder().append(link);
 }
 
-function paintMal(link, fixed) {
+function paintMal(link) {
   link.style.background = "#2e51a2";
   link.style.color = "#fff";
   link.style.padding = "6px 10px";
   link.style.borderRadius = "4px";
   link.style.font = "700 14px/1.2 sans-serif";
   link.style.textDecoration = "none";
-  if (fixed) {
-    link.style.position = "fixed";
-    link.style.top = "76px";
-    link.style.right = "16px";
-    link.style.zIndex = "2147483646";
-    return;
-  }
+  link.style.display = "inline-block";
   link.style.position = "static";
   link.style.top = "";
   link.style.right = "";
   link.style.zIndex = "";
+  link.style.width = "fit-content";
+  link.style["justify-self"] = "center";
 }
 
 function clearMal() {
@@ -531,8 +535,8 @@ function renderMal(record) {
   }
   link.href = `https://myanimelist.net/anime/${record.malId}`;
   link.textContent = malText(record.score);
-  link.title = "MyAnimeList score via Tenrai (unofficial; cached). Open the MyAnimeList entry to verify.";
-  link.setAttribute("aria-label", `${link.textContent}. MyAnimeList score via Tenrai. Open MyAnimeList.`);
+  link.title = "Open in MAL.";
+  link.setAttribute("aria-label", `${link.textContent}. Open in MAL.`);
   placePageTools(pageKind(location, document));
 }
 
