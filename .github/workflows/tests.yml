@@ -1,14 +1,14 @@
 name: Tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - '**/*.js'
   pull_request:
     branches: [main]
-    paths:
-      - '**/*.js'
+  merge_group:
 
 permissions:
   contents: read
