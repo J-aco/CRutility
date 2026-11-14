@@ -20,7 +20,7 @@ const chromeFadeBound = new WeakSet();
 
 const FILL_HEADER_CLASS = "app-layout__header";
 const FILL_CSS = `.erc-watch-episode-layout .video-player-spacer {
-    max-height: 95vh !important;
+    max-height: 100vh !important;
     height: 100vw !important;
     min-height: calc(20rem*.5625) !important;
 }
@@ -322,7 +322,7 @@ function realizeFill(model) {
     return;
   }
   const button = ensureFillButton();
-  button.textContent = model.expanded ? "Exit fill" : "Fill page";
+  button.textContent = model.expanded ? "Normal Player" : "Expanded Player";
   button.setAttribute("aria-pressed", model.expanded ? "true" : "false");
 }
 
