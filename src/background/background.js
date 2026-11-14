@@ -16,6 +16,11 @@ const TENRAI_REQUEST_INTERVAL_MS = 550;
 const pendingLookups = new Map();
 let lookupQueue = Promise.resolve();
 
+chrome.tabs.onUpdated.addListener((tabId, changes) => {
+  if (!changes.url || !/^https:\/\/(?:www\.)?crunchyroll\.com\//.test(changes.url)) return;
+  chrome.tabs.sendMessage(tabId, { type: "mal-page-change", pageUrl: changes.url }, { frameId: 0 }).catch(() => {});
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "mal-lookup" || typeof message.title !== "string") return;
   const page = malLookupPage(sender, message.pageUrl);
@@ -23,7 +28,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse(null);
     return false;
   }
-  queuedLookup(message.title, page).then(sendResponse, () => sendResponse(null));
+  queuedLookup(message.title, page).then(sendResponse, (error) => sendResponse(error.retry ? { retry: true } : null));
   return true;
 });
 
@@ -114,7 +119,9 @@ async function fetchHits(title, page) {
   const wait = Math.max(0, (access.nextRequestAt || 0) - Date.now());
   if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
   const tab = await chrome.tabs.get(page.tabId);
-  if (tab.url !== page.url || malPageKind(tab.url) === "other") throw new Error("MAL lookup page changed");
+  if (tab.url !== page.url || malPageKind(tab.url) === "other") {
+    throw Object.assign(new Error("MAL lookup page changed"), { retry: true });
+  }
   const settings = await chrome.storage.local.get("mal");
   if (settings.mal === false) throw new Error("MAL lookup disabled");
   await chrome.storage.local.set({

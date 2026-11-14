@@ -35,6 +35,13 @@ async function init() {
   ]);
   settings = settingsFromStored(stored);
   remembered = normalizeProfile(stored[LAST_PROFILE_KEY]);
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== "mal-page-change" || message.pageUrl !== location.href) return;
+    clearMal();
+    seriesState = { href: "", status: "" };
+    const kind = pageKind(location, document);
+    if (kind === "series" || kind === "watch") passSeries(kind);
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const feature of FEATURES) {
@@ -66,6 +73,7 @@ function tick() {
     clearMal();
     seriesState = { href: "", status: "" };
   }
+  if (kind === "series" || kind === "watch") passSeries(kind);
   syncFill(kind);
   try {
     if (settings.profile && kind !== "profile-gate") rememberHeaderAvatar();
@@ -77,7 +85,6 @@ function tick() {
       clearMal();
       return;
     }
-    passSeries(kind);
     if (kind === "watch") scanSkip();
   } finally {
     placePageTools(kind);
@@ -219,74 +226,69 @@ function rememberHeaderAvatar() {
 
 async function passSeries(kind) {
   if (!settings.mal || !["series", "watch"].includes(kind) || pageKind(location, document) !== kind) return;
-  if (document.querySelector("a[data-cr-mal]")) return;
-  if (seriesState.href === location.href && seriesState.status === "pending") return;
-  if (seriesState.href === location.href && seriesState.status === "miss" && Date.now() < seriesState.retryAt) return;
   const title = showTitle(kind);
   if (!title) return;
-  const requestState = { href: location.href, status: "pending" };
+  if (seriesState.href !== location.href || seriesState.title !== title) {
+    clearMal();
+    seriesState = { href: location.href, title, status: "" };
+  }
+  if (document.querySelector("a[data-cr-mal]")) return;
+  if (seriesState.status === "pending" && Date.now() - seriesState.startedAt < 20000) return;
+  if (seriesState.href === location.href && seriesState.status === "miss" && Date.now() < seriesState.retryAt) return;
+  const requestState = { href: location.href, title, status: "pending", startedAt: Date.now() };
   seriesState = requestState;
   let record = null;
   try {
     record = await chrome.runtime.sendMessage({ type: "mal-lookup", title, pageUrl: requestState.href });
   } catch {
     if (seriesState === requestState && location.href === requestState.href) {
-      seriesState = { href: requestState.href, status: "miss", retryAt: Date.now() + 20000 };
+      seriesState = { href: requestState.href, title, status: "miss", retryAt: Date.now() + 20000 };
     }
     return;
   }
   if (seriesState !== requestState || location.href !== requestState.href
     || !settings.mal || pageKind(location, document) !== kind) return;
-  if (!record || record.malId == null) {
-    seriesState = { href: location.href, status: "miss", retryAt: Date.now() + 20000 };
+  if (record?.retry) {
+    seriesState = { href: requestState.href, title, status: "" };
     return;
   }
-  seriesState = { href: location.href, status: "ok" };
+  if (!record || record.malId == null) {
+    seriesState = { href: location.href, title, status: "miss", retryAt: Date.now() + 20000 };
+    return;
+  }
+  seriesState = { href: location.href, title, status: "ok" };
   renderMal(record);
 }
 
 function showTitle(kind) {
-  const ordered = kind === "watch"
-    ? [seriesLinkTitle(), metaTitle(), document.title, headingText()]
-    : [headingText(), metaTitle(), document.title, seriesLinkTitle()];
-  for (const value of ordered) {
-    const cleaned = cleanShowTitle(value);
-    if (cleaned) return cleaned;
+  if (kind === "series") return seriesTitleFromUrl(location.href);
+  if (kind !== "watch") return "";
+  const media = document.querySelector("#content .erc-watch-episode .current-media-wrapper");
+  if (!media) return "";
+  for (const link of media.querySelectorAll('a[href*="/series/"]')) {
+    const title = seriesTitleFromUrl(link.href);
+    if (title) return title;
   }
   return "";
 }
 
-function seriesLinkTitle() {
-  const root = document.querySelector("main") || document.body;
-  for (const link of root.querySelectorAll('a[href*="/series/"]')) {
-    const text = link.textContent.replace(/\s+/g, " ").trim();
-    if (text.length < 3 || text.length > 140) continue;
-    if (/^(series|home|watch)$/i.test(text)) continue;
-    return text;
+function seriesTitleFromUrl(value) {
+  try {
+    const url = new URL(value, location.href);
+    if (malPageKind(url) !== "series") return "";
+    const slug = url.pathname.match(/^\/series\/[^/]+\/([^/]+)\/?$/)?.[1];
+    if (!slug) return "";
+    const decoded = decodeURIComponent(slug);
+    if (/[\/#?]/.test(decoded)) return "";
+    return cleanShowTitle(decoded.replace(/[-_]+/g, " "));
+  } catch {
+    return "";
   }
-  return "";
-}
-
-function metaTitle() {
-  return document.querySelector('meta[property="og:title"]')?.content || "";
-}
-
-function headingText() {
-  for (const heading of document.querySelectorAll("h1")) {
-    const text = heading.textContent.replace(/\s+/g, " ").trim();
-    if (text) return text;
-  }
-  return "";
 }
 
 function cleanShowTitle(value) {
   if (typeof value !== "string" || /watch\s+popular\s+anime/i.test(value)) return "";
-  const title = value
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\s*[-|–—]\s*(watch on crunchyroll|crunchyroll)\b.*$/i, "")
-    .replace(/\s*\|\s*crunchyroll$/i, "")
-    .trim();
+  const title = value.replace(/\s+/g, " ").trim();
   if (title.length < 2) return "";
   if (/^(crunchyroll|home|watch|series|loading)$/i.test(title)) return "";
   return title;

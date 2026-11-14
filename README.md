@@ -31,15 +31,13 @@ Change a checkbox in the popup. The choice is saved in extension storage. An ope
 
 `Skip recaps` - clicks a shown recap control.
 
-`Show the MyAnimeList score` - adds a link on a series page and on a watch page. On a watch page it sits with Fill page, after the current episode header. On a series page it stays fixed at the top right. The link text looks like a blue button with `MAL 8.21` and opens that anime on MyAnimeList. A stored score refreshes after 7 days.* **
+`Show the MyAnimeList score` - adds a link on a series page and on a watch page. On a watch page it sits with Fill page, after the current episode header. On a series page it will display under the normal ratings. The link text looks like a blue button with `MAL 8.21` and opens that anime on MyAnimeList. A stored score refreshes after 7 days.*
 
 
 `Fill the watch page player` - adds a Fill page button on a watch page, directly after the current episode header. With the setting on, a watch page opens already filled. Fill works similarly to theatre mode on other apps and attempts to fill the screen horizontally without cutting off video or player controls vertically (These values are CSS related - hardcoded using `vh` and `vw`). It also removes the top menu from the crunchyroll page.
 
 NOTES:
 *MAL rating currently only returns the first season of a series.
-
-**Currently there is very long load time for MAL ratings to show up (recorded up to 30 seconds in testing). It seems like it is for first time for a series only, once cached on your pc it is near instant.
 
 ### Skip Functionality Clarification
 

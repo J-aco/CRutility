@@ -24,6 +24,8 @@ function response(status = 200, data = [], retryAfter = null) {
 function worker({ store = {}, clock = { now: 1800000000000 }, reply, pageUrl = "https://www.crunchyroll.com/series/naruto" } = {}) {
   const requests = [];
   const tab = { id: 1, url: pageUrl };
+  const pageChanges = [];
+  let onUpdated;
   let listener;
   const sandbox = {
     URL,
@@ -31,7 +33,11 @@ function worker({ store = {}, clock = { now: 1800000000000 }, reply, pageUrl = "
     Date: class extends Date { static now() { return clock.now; } },
     setTimeout(callback, ms) { clock.now += ms; callback(); },
     chrome: {
-      tabs: { async get(id) { assert.equal(id, tab.id); return { ...tab }; } },
+      tabs: {
+        async get(id) { assert.equal(id, tab.id); return { ...tab }; },
+        async sendMessage(id, message, options) { pageChanges.push({ id, message, options }); },
+        onUpdated: { addListener(callback) { onUpdated = callback; } },
+      },
       storage: { local: {
         async get(keys) {
           return Object.fromEntries([].concat(keys).map((key) => [key, structuredClone(store[key])]));
@@ -55,7 +61,8 @@ function worker({ store = {}, clock = { now: 1800000000000 }, reply, pageUrl = "
   vm.createContext(sandbox);
   vm.runInContext(workerSource, sandbox);
   return {
-    requests, store, clock, tab,
+    requests, store, clock, tab, pageChanges,
+    update(url) { tab.url = url; onUpdated(tab.id, { url }); },
     lookup(title, sender = { frameId: 0, url: tab.url, tab: { id: tab.id } }, sourceUrl = sender.url) {
       return new Promise((resolve) => {
         listener({ type: "mal-lookup", title, pageUrl: sourceUrl }, sender, resolve);
@@ -218,7 +225,7 @@ test("MAL requests from frames or with a mismatched page URL are rejected", asyn
   const app = worker();
   const sender = { frameId: 0, url: app.tab.url, tab: { id: app.tab.id } };
   assert.equal(await app.lookup("Naruto", { ...sender, frameId: 1 }), null);
-  assert.equal(await app.lookup("Naruto", sender, "https://www.crunchyroll.com/watch/other"), null);
+  assert.equal((await app.lookup("Naruto", sender, "https://www.crunchyroll.com/watch/other")).retry, true);
   assert.equal(await app.lookup("Naruto", sender, null), null);
   assert.equal(await app.lookup("Naruto", { ...sender, tab: undefined }), null);
   assert.equal(app.requests.length, 0);
@@ -238,7 +245,7 @@ test("queued MAL requests are discarded when their tab leaves the requesting pag
   app.tab.url = "https://www.crunchyroll.com/";
   finish(response(200, [{ mal_id: 1, title: "Naruto", score: 8.21 }]));
   await first;
-  assert.equal(await queued, null);
+  assert.equal((await queued).retry, true);
   assert.equal(app.requests.length, 1);
 });
 
@@ -246,7 +253,7 @@ test("a sender URL cannot start a request after the tab has navigated elsewhere"
   const app = worker();
   const sender = { frameId: 0, url: app.tab.url, tab: { id: app.tab.id } };
   app.tab.url = "https://www.crunchyroll.com/series/bleach";
-  assert.equal(await app.lookup("Naruto", sender), null);
+  assert.equal((await app.lookup("Naruto", sender)).retry, true);
   assert.equal(app.requests.length, 0);
 });
 
@@ -284,4 +291,26 @@ test("a current-page URL cannot be supplied by a different origin", async () => 
   const sender = { frameId: 0, url: "https://example.com/", tab: { id: app.tab.id } };
   assert.equal(await app.lookup("Naruto", sender, app.tab.url), null);
   assert.equal(app.requests.length, 0);
+});
+
+test("Crunchyroll page changes immediately notify the top-level content script", () => {
+  const app = worker();
+  app.update("https://www.crunchyroll.com/series/GY8DWQN5Y/golden-kamuy");
+  assert.equal(app.pageChanges.length, 1);
+  assert.equal(app.pageChanges[0].message.type, "mal-page-change");
+  assert.equal(app.pageChanges[0].message.pageUrl, app.tab.url);
+  assert.equal(app.pageChanges[0].options.frameId, 0);
+  app.update("https://example.com/");
+  assert.equal(app.pageChanges.length, 1);
+});
+
+test("a temporary tab URL mismatch can be retried immediately once navigation catches up", async () => {
+  const app = worker();
+  const sender = { frameId: 0, url: "https://www.crunchyroll.com/", tab: { id: app.tab.id } };
+  const pageUrl = "https://www.crunchyroll.com/series/GY8DWQN5Y/golden-kamuy";
+  assert.equal((await app.lookup("Golden Kamuy", sender, pageUrl)).retry, true);
+  assert.equal(app.requests.length, 0);
+  app.tab.url = pageUrl;
+  assert.equal((await app.lookup("Golden Kamuy", sender, pageUrl)).malId, 1);
+  assert.equal(app.requests.length, 1);
 });
