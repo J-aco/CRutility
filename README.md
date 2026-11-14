@@ -1,7 +1,5 @@
 # CRutility
 
-This folder is an unpacked Opera GX extension. It remembers the last Crunchyroll profile, clicks skip controls the player shows, has a theater(fill) mode for player, adds MAL rating with link to page.
-
 This is an independent project, not affiliated with, sponsored by, or endorsed by Crunchyroll, MyAnimeList, Tenrai, or the Netflix-Prime-Auto-Skip authors. See the [license](#license) below and [third-party services, privacy, and service terms](docs/THIRD_PARTY_SERVICES.md) for details.
 
 ## Install in Opera GX
