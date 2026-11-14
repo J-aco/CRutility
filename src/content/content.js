@@ -62,6 +62,10 @@ async function init() {
 
 function tick() {
   const kind = pageKind(location, document);
+  if (seriesState.href && seriesState.href !== location.href) {
+    clearMal();
+    seriesState = { href: "", status: "" };
+  }
   syncFill(kind);
   try {
     if (settings.profile && kind !== "profile-gate") rememberHeaderAvatar();
@@ -72,10 +76,6 @@ function tick() {
     if (kind !== "series" && kind !== "watch") {
       clearMal();
       return;
-    }
-    if (seriesState.href && seriesState.href !== location.href) {
-      clearMal();
-      seriesState = { href: "", status: "" };
     }
     passSeries(kind);
     if (kind === "watch") scanSkip();
@@ -99,10 +99,7 @@ function revealPlayer() {
 function pageKind(url, doc) {
   const gate = [...doc.querySelectorAll(".erc-profile-item")].some(visible);
   if (gate) return "profile-gate";
-  const path = url.pathname || "";
-  if (path.includes("/watch/")) return "watch";
-  if (path.includes("/series/")) return "series";
-  return "other";
+  return malPageKind(url);
 }
 
 let promoClickedHref = "";
@@ -221,21 +218,25 @@ function rememberHeaderAvatar() {
 }
 
 async function passSeries(kind) {
-  if (!settings.mal) return;
+  if (!settings.mal || !["series", "watch"].includes(kind) || pageKind(location, document) !== kind) return;
   if (document.querySelector("a[data-cr-mal]")) return;
   if (seriesState.href === location.href && seriesState.status === "pending") return;
   if (seriesState.href === location.href && seriesState.status === "miss" && Date.now() < seriesState.retryAt) return;
   const title = showTitle(kind);
   if (!title) return;
-  seriesState = { href: location.href, status: "pending" };
+  const requestState = { href: location.href, status: "pending" };
+  seriesState = requestState;
   let record = null;
   try {
-    record = await chrome.runtime.sendMessage({ type: "mal-lookup", title });
+    record = await chrome.runtime.sendMessage({ type: "mal-lookup", title, pageUrl: requestState.href });
   } catch {
-    seriesState = { href: location.href, status: "miss", retryAt: Date.now() + 20000 };
+    if (seriesState === requestState && location.href === requestState.href) {
+      seriesState = { href: requestState.href, status: "miss", retryAt: Date.now() + 20000 };
+    }
     return;
   }
-  if (seriesState.href !== location.href) return;
+  if (seriesState !== requestState || location.href !== requestState.href
+    || !settings.mal || pageKind(location, document) !== kind) return;
   if (!record || record.malId == null) {
     seriesState = { href: location.href, status: "miss", retryAt: Date.now() + 20000 };
     return;
@@ -279,7 +280,7 @@ function headingText() {
 }
 
 function cleanShowTitle(value) {
-  if (typeof value !== "string") return "";
+  if (typeof value !== "string" || /watch\s+popular\s+anime/i.test(value)) return "";
   const title = value
     .replace(/\s+/g, " ")
     .trim()
@@ -483,37 +484,38 @@ function placePageTools(kind) {
   if (button) (row || toolHolder()).append(button);
   if (!link) return;
   if (row) {
-    paintMal(link, false);
+    paintMal(link);
     row.append(link);
     return;
   }
   if (kind === "series") {
-    paintMal(link, true);
-    document.documentElement.append(link);
+    paintMal(link);
+    const ratings = document.querySelector("div.erc-ratings");
+    if (ratings) {
+      if (ratings.nextElementSibling !== link) ratings.insertAdjacentElement("afterend", link);
+    } else {
+      toolHolder().append(link);
+    }
     return;
   }
-  paintMal(link, false);
+  paintMal(link);
   toolHolder().append(link);
 }
 
-function paintMal(link, fixed) {
+function paintMal(link) {
   link.style.background = "#2e51a2";
   link.style.color = "#fff";
   link.style.padding = "6px 10px";
   link.style.borderRadius = "4px";
   link.style.font = "700 14px/1.2 sans-serif";
   link.style.textDecoration = "none";
-  if (fixed) {
-    link.style.position = "fixed";
-    link.style.top = "76px";
-    link.style.right = "16px";
-    link.style.zIndex = "2147483646";
-    return;
-  }
+  link.style.display = "inline-block";
   link.style.position = "static";
   link.style.top = "";
   link.style.right = "";
   link.style.zIndex = "";
+  link.style.width = "fit-content";
+  link.style["justify-self"] = "center";
 }
 
 function clearMal() {
@@ -531,8 +533,8 @@ function renderMal(record) {
   }
   link.href = `https://myanimelist.net/anime/${record.malId}`;
   link.textContent = malText(record.score);
-  link.title = "MyAnimeList score via Tenrai (unofficial; cached). Open the MyAnimeList entry to verify.";
-  link.setAttribute("aria-label", `${link.textContent}. MyAnimeList score via Tenrai. Open MyAnimeList.`);
+  link.title = "Open in MAL.";
+  link.setAttribute("aria-label", `${link.textContent}. Open in MAL.`);
   placePageTools(pageKind(location, document));
 }
 

@@ -21,8 +21,9 @@ function response(status = 200, data = [], retryAfter = null) {
   };
 }
 
-function worker({ store = {}, clock = { now: 1800000000000 }, reply } = {}) {
+function worker({ store = {}, clock = { now: 1800000000000 }, reply, pageUrl = "https://www.crunchyroll.com/series/naruto" } = {}) {
   const requests = [];
+  const tab = { id: 1, url: pageUrl };
   let listener;
   const sandbox = {
     URL,
@@ -30,6 +31,7 @@ function worker({ store = {}, clock = { now: 1800000000000 }, reply } = {}) {
     Date: class extends Date { static now() { return clock.now; } },
     setTimeout(callback, ms) { clock.now += ms; callback(); },
     chrome: {
+      tabs: { async get(id) { assert.equal(id, tab.id); return { ...tab }; } },
       storage: { local: {
         async get(keys) {
           return Object.fromEntries([].concat(keys).map((key) => [key, structuredClone(store[key])]));
@@ -53,10 +55,10 @@ function worker({ store = {}, clock = { now: 1800000000000 }, reply } = {}) {
   vm.createContext(sandbox);
   vm.runInContext(workerSource, sandbox);
   return {
-    requests, store, clock,
-    lookup(title) {
+    requests, store, clock, tab,
+    lookup(title, sender = { frameId: 0, url: tab.url, tab: { id: tab.id } }, sourceUrl = sender.url) {
       return new Promise((resolve) => {
-        assert.equal(listener({ type: "mal-lookup", title }, {}, resolve), true);
+        listener({ type: "mal-lookup", title, pageUrl: sourceUrl }, sender, resolve);
       });
     },
   };
@@ -183,4 +185,103 @@ test("network or server failures stop fallback queries without caching a false m
     assert.equal(app.requests.length, 1);
     assert.equal(app.store.malCache, undefined);
   }
+});
+
+test("only series and watch URLs on Crunchyroll can start a MAL request", async () => {
+  for (const pageUrl of [
+    "https://www.crunchyroll.com/series/naruto",
+    "https://crunchyroll.com/watch/episode/title?lang=en#player",
+  ]) {
+    const app = worker({ pageUrl });
+    assert.equal((await app.lookup("Naruto")).malId, 1);
+    assert.equal(app.requests.length, 1);
+  }
+  for (const pageUrl of [
+    "https://www.crunchyroll.com/",
+    "https://www.crunchyroll.com/browse/anime",
+    "https://www.crunchyroll.com/news/series/naruto",
+    "https://www.crunchyroll.com/?next=/watch/episode",
+    "https://www.crunchyroll.com/series/",
+    "https://www.crunchyroll.com/watch/",
+    "https://www.crunchyroll.com/series-other/naruto",
+    "https://example.com/series/naruto",
+    "https://www.crunchyroll.com.example.com/series/naruto",
+    "http://www.crunchyroll.com/series/naruto",
+  ]) {
+    const app = worker({ pageUrl });
+    assert.equal(await app.lookup("Naruto"), null, pageUrl);
+    assert.equal(app.requests.length, 0, pageUrl);
+  }
+});
+
+test("MAL requests from frames or with a mismatched page URL are rejected", async () => {
+  const app = worker();
+  const sender = { frameId: 0, url: app.tab.url, tab: { id: app.tab.id } };
+  assert.equal(await app.lookup("Naruto", { ...sender, frameId: 1 }), null);
+  assert.equal(await app.lookup("Naruto", sender, "https://www.crunchyroll.com/watch/other"), null);
+  assert.equal(await app.lookup("Naruto", sender, null), null);
+  assert.equal(await app.lookup("Naruto", { ...sender, tab: undefined }), null);
+  assert.equal(app.requests.length, 0);
+});
+
+test("queued MAL requests are discarded when their tab leaves the requesting page", async () => {
+  let started;
+  let finish;
+  const fetching = new Promise((resolve) => { started = resolve; });
+  const app = worker({ reply: () => {
+    started();
+    return new Promise((resolve) => { finish = resolve; });
+  } });
+  const first = app.lookup("Naruto");
+  const queued = app.lookup("Bleach");
+  await fetching;
+  app.tab.url = "https://www.crunchyroll.com/";
+  finish(response(200, [{ mal_id: 1, title: "Naruto", score: 8.21 }]));
+  await first;
+  assert.equal(await queued, null);
+  assert.equal(app.requests.length, 1);
+});
+
+test("a sender URL cannot start a request after the tab has navigated elsewhere", async () => {
+  const app = worker();
+  const sender = { frameId: 0, url: app.tab.url, tab: { id: app.tab.id } };
+  app.tab.url = "https://www.crunchyroll.com/series/bleach";
+  assert.equal(await app.lookup("Naruto", sender), null);
+  assert.equal(app.requests.length, 0);
+});
+
+test("placeholder titles never reach Tenrai or create a cached miss", async () => {
+  const app = worker();
+  for (const title of [
+    "Watch Popular Anime | Crunchyroll",
+    "Crunchyroll - WATCH POPULAR ANIME online",
+    "Watch  Popular\nAnime",
+  ]) {
+    assert.equal(await app.lookup(title), null);
+  }
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.store.malCache, undefined);
+  assert.equal((await app.lookup("Naruto")).malId, 1);
+  assert.equal(app.requests.length, 1);
+});
+
+test("navigation from the home page to a series uses the current tab URL", async () => {
+  const app = worker();
+  const sender = { frameId: 0, url: "https://www.crunchyroll.com/", tab: { id: app.tab.id } };
+  assert.equal((await app.lookup("Naruto", sender, app.tab.url))?.malId, 1);
+  assert.equal(app.requests.length, 1);
+});
+
+test("navigation from a series to an episode accepts the current watch URL", async () => {
+  const app = worker({ pageUrl: "https://www.crunchyroll.com/watch/episode" });
+  const sender = { frameId: 0, url: "https://www.crunchyroll.com/series/naruto", tab: { id: app.tab.id } };
+  assert.equal((await app.lookup("Naruto", sender, app.tab.url))?.malId, 1);
+  assert.equal(app.requests.length, 1);
+});
+
+test("a current-page URL cannot be supplied by a different origin", async () => {
+  const app = worker();
+  const sender = { frameId: 0, url: "https://example.com/", tab: { id: app.tab.id } };
+  assert.equal(await app.lookup("Naruto", sender, app.tab.url), null);
+  assert.equal(app.requests.length, 0);
 });

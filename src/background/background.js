@@ -16,25 +16,41 @@ const TENRAI_REQUEST_INTERVAL_MS = 550;
 const pendingLookups = new Map();
 let lookupQueue = Promise.resolve();
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== "mal-lookup" || typeof message.title !== "string") return;
-  queuedLookup(message.title).then(sendResponse, () => sendResponse(null));
+  const page = malLookupPage(sender, message.pageUrl);
+  if (!page) {
+    sendResponse(null);
+    return false;
+  }
+  queuedLookup(message.title, page).then(sendResponse, () => sendResponse(null));
   return true;
 });
 
-function queuedLookup(title) {
+function malLookupPage(sender, pageUrl) {
+  if (sender.frameId !== 0 || !Number.isInteger(sender.tab?.id) || malPageKind(pageUrl) === "other") return null;
+  try {
+    if (new URL(sender.url).origin !== new URL(pageUrl).origin) return null;
+    return { tabId: sender.tab.id, url: pageUrl };
+  } catch {
+    return null;
+  }
+}
+
+function queuedLookup(title, page) {
   const key = title.trim();
-  if (!key || key.length > 300) return Promise.resolve(null);
-  if (pendingLookups.has(key)) return pendingLookups.get(key);
-  const lookup = lookupQueue.then(() => lookupMal(key));
+  if (!key || key.length > 300 || /watch\s+popular\s+anime/i.test(key)) return Promise.resolve(null);
+  const pendingKey = JSON.stringify([page.tabId, page.url, key]);
+  if (pendingLookups.has(pendingKey)) return pendingLookups.get(pendingKey);
+  const lookup = lookupQueue.then(() => lookupMal(key, page));
   lookupQueue = lookup.catch(() => {});
-  pendingLookups.set(key, lookup);
-  const clear = () => pendingLookups.delete(key);
+  pendingLookups.set(pendingKey, lookup);
+  const clear = () => pendingLookups.delete(pendingKey);
   lookup.then(clear, clear);
   return lookup;
 }
 
-async function lookupMal(title) {
+async function lookupMal(title, page) {
   const key = title.trim();
   if (!key) return null;
   const stored = await chrome.storage.local.get([MAL_CACHE_KEY, "mal"]);
@@ -48,7 +64,7 @@ async function lookupMal(title) {
   const hits = [];
   for (const query of searchQueries(key)) {
     // Stop on errors, including 429, instead of trying another query.
-    const rows = await fetchHits(query);
+    const rows = await fetchHits(query, page);
     for (const row of rows) hits.push(hitFromRow(row));
     const picked = pickMalHit(key, hits);
     if (picked && picked.malId != null) {
@@ -91,12 +107,16 @@ function hitFromRow(row) {
   };
 }
 
-async function fetchHits(title) {
+async function fetchHits(title, page) {
   const stored = await chrome.storage.local.get(TENRAI_ACCESS_KEY);
   const access = stored[TENRAI_ACCESS_KEY] || {};
   if (Date.now() < (access.retryAt || 0)) throw new Error("Tenrai requests paused");
   const wait = Math.max(0, (access.nextRequestAt || 0) - Date.now());
   if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
+  const tab = await chrome.tabs.get(page.tabId);
+  if (tab.url !== page.url || malPageKind(tab.url) === "other") throw new Error("MAL lookup page changed");
+  const settings = await chrome.storage.local.get("mal");
+  if (settings.mal === false) throw new Error("MAL lookup disabled");
   await chrome.storage.local.set({
     [TENRAI_ACCESS_KEY]: { nextRequestAt: Date.now() + TENRAI_REQUEST_INTERVAL_MS },
   });
