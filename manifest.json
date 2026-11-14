@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CRutility",
-  "version": "0.2.0",
-  "description": "Unofficial, independent extension: remember your Crunchyroll profile, skip player prompts, and show MyAnimeList scores via Tenrai.",
+  "version": "0.3.0",
+  "description": "Remembers your Crunchyroll profile to auto login, auto-skip and show MyAnimeList Ratings.",
   "icons": {
     "16": "assets/icons/Icon 16x16.png",
     "32": "assets/icons/Icon 32x32.png",
@@ -23,7 +23,7 @@
       "48": "assets/icons/Icon 48x48.png",
       "128": "assets/icons/Icon 128x128.png"
     },
-    "default_title": "CRutility (Unofficial)"
+    "default_title": "CRutility"
   },
   "background": {
     "service_worker": "src/background/background.js"
