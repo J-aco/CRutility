@@ -1,30 +1,27 @@
 # CRutility
-
+[![Unit Tests](https://github.com/J-aco/CRutility/actions/workflows/tests.yml/badge.svg)](https://github.com/J-aco/CRutility/actions/workflows/tests.yml)
 ## Overview
-A browser extension to enhance the user experience on Crunchyroll. (Currently only tested in Opera GX, but chrome should work.)
+A browser extension to enhance the user experience on Crunchyroll. (Currently only tested in Opera GX and Chrome.)
 
 **Features:** Auto skip, Auto profile select, Expand video(Theatre mode), MAL ratings and link
 
 This is an independent project, not affiliated with, sponsored by, or endorsed by Crunchyroll, MyAnimeList, Tenrai, or the Netflix-Prime-Auto-Skip authors. See the [license](#license) below and [third-party services, privacy, and service terms](docs/THIRD_PARTY_SERVICES.md) for details.
 
-## Install in Opera GX
+## Install
 
-1. Open `opera://extensions`.
-2. Turn on Developer mode.
-3. Click Load unpacked.
-4. Choose this folder.
-
-After an update, click Reload on this extension's card, then reload the Crunchyroll tab.
+1. Download and extract or clone this repo.
+2. Open `opera://extensions` or `chrome://extensions/`
+3. Turn on Developer mode.
+4. Click Load unpacked.
+5. Choose the CRutility folder on your pc.
+6. Pin the extension or open from list, and click on the icon to change enabled features. (see below for more info)
 
 The toolbar icon opens the popup. Every toggle starts on.
-
-## Turn a feature on or off
-
-Change a checkbox in the popup. The choice is saved in extension storage. An open Crunchyroll tab picks up the change on its next check.
+After an update, click Reload on this extension's card, then reload any Crunchyroll tabs.
 
 ## What each toggle does
 
-**Remember the last profile** - stores the profile tile you click and the avatar in the site header. On the profile gate it clicks that profile once per page load. It matches the avatar address first, then the visible name.
+**Remember the last profile** - stores the profile tile you click and the avatar in the site header. Next time you reach the profile page it will auto click the last used.
 
 **Skip promos** - clicks the Skip button that displays on Crunchyrolls server-side injected promos that adblockers cant detect. After the page loads and playback starts, the extension detects the skip button and clicks it within a 5 second window and will not click it after this 5 seconds.
 
@@ -36,10 +33,9 @@ Change a checkbox in the popup. The choice is saved in extension storage. An ope
 
 **Show the MyAnimeList score** - adds a button on a series info page and watch episode page with MAL rating and link to the MAL page that will open in a new tab. On a watch page after the current episode header. On a series page it will display under the normal CR ratings. The link text looks like `MAL 8.21` and opens that anime on MyAnimeList. A stored score refreshes after 7 days.*MAL rating currently only returns the first season of a series.
 
-**Expand video to fit window** - adds a Fill page button on a watch page, directly after the current episode header. With the setting on, a watch page opens already filled. Fill works similarly to theatre mode on other apps and attempts to fill the screen horizontally without cutting off video or player controls vertically (These values are CSS related - hardcoded using `vh` and `vw`). It also removes the top menu from the crunchyroll page.
+**Expand video to fit window** - adds a Expand Video button on a watch page, directly after the current episode header. With the setting on, a watch page opens already expanded. Expand works similarly to "theatre mode" on other apps and attempts to fill the screen horizontally without cutting off video or player controls vertically. It also removes the top menu from the crunchyroll page enable near fullscreen size without actually being in fullscreen. *(These values are currently hardcoded using `vh` and `vw`. A planned future feature for user set their own limits is possible. Using simulated viewport dimensions will probably lead to unintended outcomes.)* 
 
-
-### Skip Functionality Clarification
+## Skip Functionality Clarification
 
 The extension never seeks. It does not set the video current time. It only clicks the button that is already in the player for you. Sometimes CR messes up with the placement or timing of these buttons - this extension will not fix that and will click them if that setting is on.
 
@@ -47,7 +43,7 @@ The extension never seeks. It does not set the video current time. It only click
 
 This extension includes code and inspiration from [Netflix-Prime-Auto-Skip / Streaming enhanced](https://github.com/Dreamlinerm/Netflix-Prime-Auto-Skip), by Marvin Krebber (Dreamlinerm) and contributors, distributed under the [GNU General Public License version 3](https://github.com/Dreamlinerm/Netflix-Prime-Auto-Skip/blob/main/License).
 
-This is a modified, independently maintained project. Its changes include a standalone Opera GX extension, modified profile and skip controls, fill / theatre mode, and Tenrai-backed MAL ratings. This extension is licensed under **GPL-3.0-only**; the full license is in [LICENSE](LICENSE). Copyright (C) 2026 Fred.
+This is a modified, independently maintained project. Its changes include modified profile and skip controls, expand / theatre mode, and Tenrai-backed MAL ratings. This extension is licensed under **GPL-3.0-only**; the full license is in [LICENSE](LICENSE). Copyright (C) 2026 Fred.
 
 The optional ratings feature obtains MyAnimeList catalogue scores through [Tenrai's unofficial API](https://api.tenrai.org/documentation), not through MyAnimeList's official API. Tenrai do not require attribution but it was a life saver for this tool.
 
