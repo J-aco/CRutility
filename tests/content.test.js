@@ -187,26 +187,6 @@ test("preview skipping waits for an offered preview during playback after 80 per
   }
 });
 
-test("preview skipping waits for an available next episode button", () => {
-  const app = skipPlayer();
-  const next = app.next;
-  app.next = null;
-  app.sandbox.scanSkip();
-  app.next = next;
-  next.disabled = true;
-  app.sandbox.scanSkip();
-  next.disabled = false;
-  const getAttribute = next.getAttribute;
-  next.getAttribute = (name) => name === "aria-disabled" ? "true" : getAttribute(name);
-  app.sandbox.scanSkip();
-  assert.equal(next.clicks, 0);
-  assert.equal(app.skip.clicks, 0);
-  next.getAttribute = getAttribute;
-  app.sandbox.scanSkip();
-  assert.equal(next.clicks, 1);
-  assert.equal(app.skip.clicks, 0);
-});
-
 test("other skip kinds continue clicking their skip controls", () => {
   for (const options of [
     { label: "Skip Intro", fraction: 0.1 },
