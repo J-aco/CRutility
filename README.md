@@ -25,11 +25,13 @@ After an update, click Reload on this extension's card, then reload any Crunchyr
 
 **Skip promos** - clicks the Skip button that displays on Crunchyrolls server-side injected promos that adblockers cant detect. After the page loads and playback starts, the extension detects the skip button and clicks it within a 5 second window and will not click it after this 5 seconds.
 
-**Skip intros** - clicks a shown intro control in the first half of the episode.
+**Skip intros** - clicks a shown skip intro control in the first half of the episode.
 
-**Skip outros** - clicks a shown credits, outro, or ending control.
+**Skip outros** - clicks a shown skip credits, outro, or ending control.
 
-**Skip recaps** - clicks a shown recap control.
+**Skip preview** - clicks a shown skip preview control once.
+
+**Skip recaps** - clicks a shown skip recap control.
 
 **Show the MyAnimeList score** - adds a button on a series info page and watch episode page with MAL rating and link to the MAL page that will open in a new tab. On a watch page after the current episode header. On a series page it will display under the normal CR ratings. The link text looks like `MAL 8.21` and opens that anime on MyAnimeList. A stored score refreshes after 7 days.*MAL rating currently only returns the first season of a series.
 
