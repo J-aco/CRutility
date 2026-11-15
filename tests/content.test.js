@@ -125,6 +125,101 @@ function content({ url = "https://www.crunchyroll.com/series/GY8DWQN5Y/naruto", 
   };
 }
 
+function skipPlayer({ label = "Skip Preview", fraction = 0.9, paused = false, className = "" } = {}) {
+  const app = content({ url: "https://www.crunchyroll.com/watch/episode" });
+  const video = { duration: 1000, currentTime: fraction * 1000, paused, dispatchEvent() {} };
+  const button = (attributes) => ({
+    clicks: 0,
+    isConnected: true,
+    getAttribute(name) { return attributes[name] ?? null; },
+    querySelector() { return {}; },
+    checkVisibility() { return true; },
+    click() { this.clicks += 1; },
+  });
+  const skip = button({ "aria-label": label, class: className });
+  const next = button({ "aria-label": "Next episode", "data-testid": "next-episode-button" });
+  const querySelector = app.sandbox.document.querySelector;
+  app.sandbox.document.querySelector = (selector) => {
+    if (selector === "video") return video;
+    if (selector === 'button[aria-label="Next episode"][data-testid="next-episode-button"]') return app.next;
+    return querySelector(selector);
+  };
+  app.sandbox.document.querySelectorAll = (selector) => {
+    if (selector === "video") return [video];
+    if (selector === 'button:has(svg[data-testid="skip-intro-icon"])') return [skip];
+    return [];
+  };
+  app.sandbox.MouseEvent = class {};
+  app.sandbox.PointerEvent = class {};
+  return Object.assign(app, { video, skip, next });
+}
+
+test("preview skipping clicks next episode once per episode without clicking skip", () => {
+  const app = skipPlayer();
+  app.sandbox.scanSkip();
+  app.sandbox.scanSkip();
+  assert.equal(app.next.clicks, 1);
+  assert.equal(app.skip.clicks, 0);
+  app.sandbox.location = new URL("https://www.crunchyroll.com/watch/next");
+  app.sandbox.scanSkip();
+  assert.equal(app.next.clicks, 2);
+});
+
+test("disabled preview skipping leaves both controls untouched", () => {
+  const app = skipPlayer();
+  vm.runInContext("settings.preview = false", app.sandbox);
+  app.sandbox.scanSkip();
+  assert.equal(app.next.clicks, 0);
+  assert.equal(app.skip.clicks, 0);
+});
+
+test("preview skipping waits for an offered preview during playback after 80 percent", () => {
+  for (const options of [
+    { paused: true },
+    { fraction: 0.8 },
+    { className: "kat:opacity-0" },
+    { label: "Next episode" },
+  ]) {
+    const app = skipPlayer(options);
+    app.sandbox.scanSkip();
+    assert.equal(app.next.clicks, 0);
+    assert.equal(app.skip.clicks, 0);
+  }
+});
+
+test("preview skipping waits for an available next episode button", () => {
+  const app = skipPlayer();
+  const next = app.next;
+  app.next = null;
+  app.sandbox.scanSkip();
+  app.next = next;
+  next.disabled = true;
+  app.sandbox.scanSkip();
+  next.disabled = false;
+  const getAttribute = next.getAttribute;
+  next.getAttribute = (name) => name === "aria-disabled" ? "true" : getAttribute(name);
+  app.sandbox.scanSkip();
+  assert.equal(next.clicks, 0);
+  assert.equal(app.skip.clicks, 0);
+  next.getAttribute = getAttribute;
+  app.sandbox.scanSkip();
+  assert.equal(next.clicks, 1);
+  assert.equal(app.skip.clicks, 0);
+});
+
+test("other skip kinds continue clicking their skip controls", () => {
+  for (const options of [
+    { label: "Skip Intro", fraction: 0.1 },
+    { label: "Skip Credits" },
+    { label: "Skip Recap", fraction: 0.05 },
+  ]) {
+    const app = skipPlayer(options);
+    app.sandbox.scanSkip();
+    assert.equal(app.skip.clicks, 1);
+    assert.equal(app.next.clicks, 0);
+  }
+});
+
 test("MAL title extraction and messaging never run on unrelated pages", async () => {
   for (const url of [
     "https://www.crunchyroll.com/",

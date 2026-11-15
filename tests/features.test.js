@@ -11,7 +11,7 @@ import vm from "node:vm";
 const sandbox = {};
 sandbox.globalThis = sandbox;
 vm.runInNewContext(readFileSync(new URL("../src/shared/features.js", import.meta.url), "utf8"), sandbox);
-const { classifySkip, pickMalHit, skipControlOffered, reduceFill } = sandbox.crUtility;
+const { classifySkip, featureIdForKind, settingsFromStored, pickMalHit, skipControlOffered, reduceFill } = sandbox.crUtility;
 
 test("intro", () => {
   assert.equal(classifySkip("Skip Intro", 0.12, true), "intro");
@@ -35,8 +35,19 @@ test("exact Skip with the icon is a promo after the halfway point", () => {
   assert.equal(classifySkip("Skip", 0.8, true), "promo");
 });
 
-test("preview in the second half is rejected", () => {
-  assert.equal(classifySkip("Skip Preview", 0.9, true), null);
+test("preview is recognized only after 80 percent playback", () => {
+  assert.equal(classifySkip("Skip Preview", 0.9, true), "preview");
+  assert.equal(classifySkip("SKIP PREVIEW", 0.81, false), "preview");
+  assert.equal(classifySkip("Skip Preview", 0.8, true), null);
+  assert.equal(classifySkip("Skip Preview", 0.5, true), null);
+});
+
+test("preview skipping is enabled by default and can be disabled independently", () => {
+  assert.equal(featureIdForKind("preview"), "preview");
+  assert.equal(settingsFromStored(null).preview, true);
+  const settings = settingsFromStored({ preview: false });
+  assert.equal(settings.preview, false);
+  assert.equal(settings.outros, true);
 });
 
 test("promo Skip is offered when aria-hidden is false in the first 5 seconds", () => {

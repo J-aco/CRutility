@@ -9,6 +9,7 @@ const FEATURES = [
   { id: "promos", label: "Skip promos" },
   { id: "intros", label: "Skip intros" },
   { id: "outros", label: "Skip outros" },
+  { id: "preview", label: "Skip preview" },
   { id: "recaps", label: "Skip recaps" },
   { id: "mal", label: "Show the MyAnimeList score" },
   { id: "fill", label: "Expand video to fit window" },
@@ -27,6 +28,13 @@ const SKIP_RULES = [
     featureId: "outros",
     match(label) {
       return includesWord(label, "credits") || includesWord(label, "outro") || includesWord(label, "ending");
+    },
+  },
+  {
+    kind: "preview",
+    featureId: "preview",
+    match(label, playbackFraction) {
+      return includesWord(label, "preview") && playbackFraction > 0.8;
     },
   },
   {

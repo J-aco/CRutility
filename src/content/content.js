@@ -110,6 +110,7 @@ function pageKind(url, doc) {
 }
 
 let promoClickedHref = "";
+let previewClickedHref = "";
 
 function scanSkip() {
   revealPlayer();
@@ -138,6 +139,10 @@ function scanSkip() {
     if (!skipControlOffered(button.getAttribute("class"), kind)) continue;
     if (!visible(button)) continue;
     if (!playing) continue;
+    if (kind === "preview") {
+      if (previewClickedHref === location.href) continue;
+      previewClickedHref = location.href;
+    }
     button.click();
     return;
   }
