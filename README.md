@@ -16,6 +16,8 @@ This is an independent project, not affiliated with, sponsored by, or endorsed b
 5. Choose the CRutility folder on your pc.
 6. Pin the extension or open from list, and click on the icon to change enabled features. (see below for more info)
 
+Not going through the process to add to chrome extension store or gx-addons yet. Maybe after v1.
+
 The toolbar icon opens the popup. Every toggle starts on.
 After an update, click Reload on this extension's card, then reload any Crunchyroll tabs.
 
