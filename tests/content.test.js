@@ -154,15 +154,23 @@ function skipPlayer({ label = "Skip Preview", fraction = 0.9, paused = false, cl
   return Object.assign(app, { video, skip, next });
 }
 
-test("preview skipping clicks next episode once per episode without clicking skip", () => {
+test("preview skipping clicks the skip control once per episode without clicking next episode", () => {
   const app = skipPlayer();
   app.sandbox.scanSkip();
   app.sandbox.scanSkip();
-  assert.equal(app.next.clicks, 1);
-  assert.equal(app.skip.clicks, 0);
+  assert.equal(app.skip.clicks, 1);
+  assert.equal(app.next.clicks, 0);
   app.sandbox.location = new URL("https://www.crunchyroll.com/watch/next");
   app.sandbox.scanSkip();
-  assert.equal(app.next.clicks, 2);
+  assert.equal(app.skip.clicks, 2);
+  assert.equal(app.next.clicks, 0);
+});
+
+test("preview skipping works without a next episode button", () => {
+  const app = skipPlayer();
+  app.next = null;
+  app.sandbox.scanSkip();
+  assert.equal(app.skip.clicks, 1);
 });
 
 test("disabled preview skipping leaves both controls untouched", () => {
